@@ -7,6 +7,44 @@
 
 ---
 
+## [2026-10-28] CORREÇÃO: não há reCAPTCHA. A entrada abaixo estava errada.
+**Quem:** Claude Opus 5, corrigido pelo dono
+
+> ⚠️ Esta entrada **corrige** a de título *"Tentativa de login por script foi
+> barrada"*, mais abaixo. Aquela entrada afirma que o login tem reCAPTCHA.
+> **Está errada.** O diário é append-only, então ela fica — mas não a leia sem
+> ler esta.
+
+**O erro:** afirmei que o login do painel tem reCAPTCHA, baseado **apenas** na
+existência de um campo escondido chamado `recaptcha_response` no formulário.
+
+**A correção:** o dono respondeu que nunca viu desafio nenhum, nem no site nem no
+app. Fui conferir o HTML da página de login:
+
+| Verificação | Resultado |
+|---|---|
+| Campo `recaptcha_response` no formulário | existe |
+| Script do Google reCAPTCHA carregado | **nenhum** |
+| `sitekey` (chave pública, obrigatória) | **nenhum** |
+| Scripts da página | só `plugin.js` e `scripts.min.js` |
+
+Sem script e sem sitekey, **o reCAPTCHA não pode estar funcionando**. O campo
+existe porque o software do painel suporta o recurso; nesta instalação ele está
+**desligado**.
+
+**Aprendizado — e é o mais importante deste diário:**
+1. **Indício não é fato.** "O formulário tem um campo de reCAPTCHA" e "o login tem
+   reCAPTCHA" são afirmações muito diferentes, e eu disse a segunda tendo apenas a
+   primeira. Pior: usei isso para justificar uma decisão de arquitetura.
+2. **O usuário que está olhando a tela tem evidência que medição remota não dá.**
+   Bastou ele dizer "não vejo reCAPTCHA" para derrubar a conclusão.
+3. A regra §3 do protocolo (não automatizar login com reCAPTCHA) **continua
+   valendo como princípio**, mas não se aplica a este painel, porque aqui não há
+   reCAPTCHA. Se um dia houver, a regra está lá.
+
+---
+
+
 ## [2026-10-28] O projeto nasce com a descoberta que o irmão Android não tinha
 **Quem:** Claude Opus 5
 

@@ -5,8 +5,8 @@ Versão para navegador do player próprio. Irmão do repositório
 mesmo objetivo e a mesma metodologia.
 
 > ⚠️ **Fase de descoberta quase concluída.** Ainda não há código de aplicação, e isso é
-> deliberado: falta confirmar como o painel entrega o vídeo e se o navegador vai
-> conseguir falar com ele (ver "A decisão que trava tudo", abaixo).
+> deliberado: o vídeo já foi medido (MP4 + CORS liberado), mas falta decidir entre
+> extensão, página estática e proxy — e isso depende de uma última medição.
 > Não escreva código de catálogo antes de resolver isso.
 
 ---

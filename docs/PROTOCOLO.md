@@ -39,6 +39,9 @@ O repositório é **PÚBLICO**.
 
 ## 3. Nada de driblar verificação anti-robô
 
+> Nota (2026-10-28): este painel **não** tem reCAPTCHA ativo — ver a entrada de
+> correção no topo do diário. A regra abaixo permanece como princípio geral.
+
 O login do painel tem **reCAPTCHA**. Automatizar esse login é driblar uma proteção
 anti-robô, e **não se faz neste projeto** — nem com a conta do próprio dono.
 
