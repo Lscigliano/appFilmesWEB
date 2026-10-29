@@ -7,6 +7,52 @@
 
 ---
 
+## [2026-10-29] As duas premissas do projeto caíram — e o site ficou pronto no mesmo dia
+**Quem:** Claude Opus 5.5, a pedido do dono: "esqueça a premissa, veja tu e tenha certeza"
+
+> ⚠️ Esta entrada **corrige** as de 2026-10-28 que dizem "não é Xtream Codes" e
+> que o catálogo dependeria de CORS no painel. Elas ficam, por ser append-only.
+
+**Situação:** a fase de descoberta travava em "o painel não libera CORS, então
+será extensão ou proxy". No mesmo dia, o projeto Android descobriu que o
+**servidor de vídeo** (outro host, não o painel) tem API Xtream.
+
+**Medições (navegador simulado com `Origin`, poucas requisições):**
+
+| Teste | Resultado |
+|---|---|
+| `player_api.php` com `Origin: https://…github.io` | 200 e **reflete a Origin** com `Allow-Credentials: true` |
+| idem com `Origin: null` (arquivo local) e `localhost` | **reflete também** |
+| `OPTIONS` (preflight) | **404**: só funciona GET simples |
+| HTTPS no servidor | **não existe** (TLS falha) |
+| filme e HLS com `Origin` | `Allow-Origin: *` no 302 e no destino |
+
+**A conclusão que decidiu a arquitetura:** a API deixa o navegador entrar, mas
+como o servidor é só HTTP, **nenhum site HTTPS consegue usá-lo**. GitHub Pages
+e similares estão fora. Um arquivo aberto do disco funciona.
+
+**Ação:** `index.html` único, sem build. Testado por script no Chrome
+instalado, abrindo por `file://`, com a conta do dono (em memória):
+login + catálogo em 4,4 s (43.024 filmes); "hobbit" acha 6 títulos; filme toca
+a 1920×801; **avançar para 60% e seguir tocando**; canal HLS a 1080p; série com
+episódio tocando; recarregar entra sozinho; zero erros no console.
+
+**O que o teste pegou que eu não teria visto:**
+1. **Capas em branco.** A `<img loading="lazy">` era criada fora da página e só
+   inserida no `load`, mas o Chrome **nunca** carrega imagem lazy fora da página.
+   Só a captura de tela mostrou.
+2. **Cartazes desalinhados.** `<button>` centraliza o conteúdo na vertical, e
+   nomes de 1 e de 2 linhas lado a lado desalinhavam as capas.
+
+**Aprendizado:**
+- A premissa "não é Xtream" foi medida num host e virou verdade para o sistema
+  todo. Ao ver um host novo, teste de novo o que foi descartado no anterior.
+- Nos testes, passar nas checagens funcionais não basta: **olhe a tela**. As
+  duas falhas acima passavam em todas as asserções.
+
+---
+
+
 ## [2026-10-28] CORREÇÃO: não há reCAPTCHA. A entrada abaixo estava errada.
 **Quem:** Claude Opus 5, corrigido pelo dono
 

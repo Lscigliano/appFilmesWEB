@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Filmes Full</title>
+<!--
+  Filmes Full — versão para o computador.
+
+  UM ARQUIVO SÓ, ABERTO DIRETO DO DISCO (dois cliques). Não é um site
+  hospedado de propósito: o servidor de streaming só fala HTTP, e o navegador
+  bloqueia uma página HTTPS (GitHub Pages, Netlify…) que chama HTTP. Aberto
+  como arquivo, ele funciona — medido: a API devolve
+  Access-Control-Allow-Origin para a origem "null" de arquivos locais.
+  Ver docs/DIARIO.md (2026-10-29).
+
+  Tudo vem da API Xtream do servidor, a mesma do app Android. Usuário e senha
+  ficam só neste navegador; nada aqui os contém.
+-->
+<style>
+  :root {
+    --fundo: #0b0618; --sup: #160b2b; --sup-alta: #221240;
+    --violeta: #8b5cf6; --violeta-claro: #a78bfa;
+    --texto: #f5f3ff; --fraco: #a9a0c4; --perigo: #ef4444;
+    --tv: #38bdf8; --filme: #8b5cf6; --serie: #ec4899;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--fundo); color: var(--texto);
+    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  input { font: inherit; }
+  .oculto { display: none !important; }
+
+  /* ---------- login ---------- */
+  #login {
+    min-height: 100%; display: grid; place-items: center; padding: 24px;
+    background: linear-gradient(#170c2e, var(--fundo) 50%, #07040f);
+  }
+  #login form { width: 100%; max-width: 380px; display: grid; gap: 14px; }
+  #login h1 { margin: 0; font-size: 32px; text-align: center; }
+  #login p { margin: 0 0 12px; color: var(--fraco); text-align: center; }
+  .campo {
+    width: 100%; padding: 14px; border-radius: 12px; outline: none;
+    background: var(--sup); color: var(--texto); border: 1.5px solid var(--sup-alta);
+  }
+  .campo:focus { border-color: var(--violeta); }
+  .botao {
+    padding: 14px; border: 0; border-radius: 12px; font-weight: 700;
+    background: var(--violeta); color: #fff;
+  }
+  .botao:disabled { opacity: .6; cursor: wait; }
+  .erro {
+    padding: 12px 14px; border-radius: 10px; color: var(--perigo);
+    background: rgb(239 68 68 / .14);
+  }
+  label.lembrar { display: flex; gap: 8px; align-items: center; color: var(--fraco); }
+
+  /* ---------- topo ---------- */
+  header {
+    position: sticky; top: 0; z-index: 5; background: var(--sup);
+    display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+    padding: 10px 16px; border-bottom: 1px solid var(--sup-alta);
+  }
+  header .marca { font-weight: 800; font-size: 18px; white-space: nowrap; }
+  .abas { display: flex; gap: 6px; }
+  .aba {
+    border: 1.5px solid var(--sup-alta); background: transparent;
+    padding: 8px 14px; border-radius: 10px; color: var(--fraco); font-weight: 600;
+  }
+  .aba.ativa { color: var(--texto); border-color: var(--cor); background: color-mix(in srgb, var(--cor) 14%, transparent); }
+  .busca { flex: 1 1 280px; position: relative; }
+  .busca input { padding-left: 40px; }
+  .busca::before {
+    content: "⌕"; position: absolute; left: 14px; top: 50%; transform: translateY(-52%);
+    color: var(--violeta-claro); font-size: 20px; pointer-events: none;
+  }
+  .sair { background: none; border: 0; color: var(--fraco); padding: 8px; }
+
+  /* ---------- conteúdo ---------- */
+  main { padding: 12px 16px 40px; }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; scrollbar-width: thin; }
+  .chip {
+    flex: none; border: 0; padding: 8px 14px; border-radius: 20px;
+    background: var(--sup-alta); color: var(--fraco); white-space: nowrap;
+  }
+  .chip.ativo { background: var(--violeta); color: var(--texto); font-weight: 700; }
+  .info { color: var(--fraco); font-size: 13px; margin: 0 0 10px; }
+  .grade {
+    display: grid; gap: 14px 12px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+  /* Botão centraliza o conteúdo na vertical; com nomes de 1 e 2 linhas lado a
+     lado, as capas ficavam desalinhadas. Coluna presa ao topo resolve. */
+  .cartaz {
+    background: none; border: 0; padding: 0; text-align: left;
+    display: flex; flex-direction: column; justify-content: flex-start; align-self: start;
+  }
+  .cartaz .capa {
+    position: relative; width: 100%;
+    aspect-ratio: 2 / 3; border-radius: 10px; overflow: hidden; background: var(--sup-alta);
+    transition: transform .12s, outline-color .12s; outline: 2px solid transparent;
+  }
+  .cartaz .capa::before {
+    content: "🎬"; position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 28px; opacity: .5;
+  }
+  .cartaz:hover .capa, .cartaz:focus-visible .capa { transform: scale(1.03); outline-color: var(--violeta); }
+  .cartaz img {
+    position: relative; width: 100%; height: 100%; object-fit: cover; display: block;
+    opacity: 0; transition: opacity .2s;
+  }
+  .cartaz img.pronta { opacity: 1; }
+  .cartaz.canal img { object-fit: contain; padding: 14px; }
+  .cartaz .nome {
+    margin-top: 6px; font-size: 13px; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .cartaz .legenda { font-size: 11px; color: var(--fraco); }
+  .aviso { padding: 48px 16px; text-align: center; color: var(--fraco); }
+  .aviso.ruim { color: var(--perigo); }
+  .girando {
+    width: 34px; height: 34px; margin: 0 auto 14px; border-radius: 50%;
+    border: 3px solid var(--sup-alta); border-top-color: var(--violeta);
+    animation: gira 0.8s linear infinite;
+  }
+  @keyframes gira { to { transform: rotate(360deg); } }
+
+  /* ---------- série ---------- */
+  .voltar { background: none; border: 0; color: var(--violeta-claro); padding: 6px 0; margin-bottom: 8px; }
+  .episodios { display: grid; gap: 8px; max-width: 860px; }
+  .episodio {
+    display: flex; gap: 14px; align-items: center; text-align: left;
+    background: var(--sup); border: 0; border-radius: 12px; padding: 12px 14px;
+  }
+  .episodio:hover { background: var(--sup-alta); }
+  .episodio .play { color: var(--violeta-claro); font-size: 22px; }
+  .episodio small { display: block; color: var(--fraco); }
+
+  /* ---------- player ---------- */
+  #player { position: fixed; inset: 0; z-index: 20; background: #000; display: flex; flex-direction: column; }
+  #player .barra {
+    display: flex; gap: 12px; align-items: center; padding: 10px 14px;
+    background: linear-gradient(#000c, #0000); position: absolute; inset: 0 0 auto; z-index: 2;
+    transition: opacity .3s;
+  }
+  #player.quieto .barra { opacity: 0; }
+  #player .barra h2 { margin: 0; font-size: 16px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #player .barra button { background: #fff2; border: 0; border-radius: 8px; padding: 8px 12px; }
+  #player video { width: 100%; height: 100%; background: #000; }
+  #player .estado {
+    position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+    text-align: center; padding: 24px; color: var(--fraco);
+  }
+  #player .estado.ruim { color: var(--perigo); pointer-events: auto; }
+  .toast {
+    position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); z-index: 3;
+    background: #000c; border: 1px solid var(--sup-alta); border-radius: 12px;
+    padding: 10px 14px; display: flex; gap: 12px; align-items: center;
+  }
+  .toast button { background: var(--violeta); border: 0; border-radius: 8px; padding: 6px 10px; }
+</style>
+</head>
+<body>
+
+<section id="login" class="oculto">
+  <form autocomplete="on">
+    <h1>Filmes Full</h1>
+    <p>Entre com os dados da sua assinatura</p>
+    <input class="campo" id="usuario" name="username" placeholder="Usuário" autocomplete="username" required>
+    <input class="campo" id="senha" name="password" type="password" placeholder="Senha" autocomplete="current-password" required>
+    <label class="lembrar"><input type="checkbox" id="lembrar" checked> Lembrar meus dados neste computador</label>
+    <div id="erroLogin" class="erro oculto"></div>
+    <button class="botao" id="entrar">Entrar</button>
+  </form>
+</section>
+
+<section id="app" class="oculto">
+  <header>
+    <span class="marca">Filmes Full</span>
+    <nav class="abas" id="abas"></nav>
+    <label class="busca">
+      <input class="campo" id="busca" type="search" placeholder="Buscar qualquer filme, série ou canal pelo nome" autocomplete="off">
+    </label>
+    <button class="sair" id="sair" title="Sair da conta">Sair</button>
+  </header>
+  <main id="conteudo"></main>
+</section>
+
+<section id="player" class="oculto">
+  <div class="barra">
+    <button id="fecharPlayer" title="Voltar (Esc)">← Voltar</button>
+    <h2 id="tituloPlayer"></h2>
+  </div>
+  <video id="video" controls playsinline></video>
+  <div class="estado" id="estadoPlayer"></div>
+</section>
+
+<script>
+"use strict";
+
+// Servidor Xtream (XUI). O mesmo do app Android: core/model/Padroes.kt.
+const SERVIDOR = "http://crm1.cc";
+const HLS_JS = "https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js";
+
+const TIPOS = {
+  canal: { rotulo: "TV", aba: "TV ao vivo", cor: "var(--tv)",
+           categorias: "get_live_categories", lista: "get_live_streams", caminho: "live" },
+  filme: { rotulo: "Filme", aba: "Filmes", cor: "var(--filme)",
+           categorias: "get_vod_categories", lista: "get_vod_streams", caminho: "movie" },
+  serie: { rotulo: "Série", aba: "Séries", cor: "var(--serie)",
+           categorias: "get_series_categories", lista: "get_series", caminho: "series" },
+};
+
+const $ = (id) => document.getElementById(id);
+const LOTE = 120; // capas desenhadas por vez: 43 mil de uma vez travaria a aba.
+
+const estado = {
+  cred: null,
+  acervo: null,                  // { canal|filme|serie: { categorias, titulos } }
+  carregando: false,
+  erroAcervo: null,
+  tipo: "filme",
+  categoria: null,               // null = "Todos"
+  filtroBusca: null,             // null = todos os tipos
+  serie: null,                   // série aberta
+};
+
+// ---------------------------------------------------------------- utilidades
+
+/** "Ação: Parte 2" → "acao parte 2". Ninguém digita acento para buscar. */
+function normalizar(t) {
+  return String(t).toLowerCase().normalize("NFD")
+    .replace(/\p{Mn}+/gu, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function el(tag, attrs = {}, ...filhos) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v != null) e.setAttribute(k, v);
+  }
+  for (const f of filhos.flat()) if (f != null) e.append(f);
+  return e;
+}
+
+/**
+ * Chama a API. A URL leva usuário e senha (é o protocolo Xtream): nunca vai
+ * para console nem para mensagem de erro — os textos abaixo são nossos.
+ */
+async function api(acao, extras = {}) {
+  const u = new URL(SERVIDOR + "/player_api.php");
+  u.searchParams.set("username", estado.cred.usuario);
+  u.searchParams.set("password", estado.cred.senha);
+  if (acao) u.searchParams.set("action", acao);
+  for (const [k, v] of Object.entries(extras)) u.searchParams.set(k, v);
+
+  let r;
+  try {
+    r = await fetch(u, { cache: "no-store" });
+  } catch {
+    throw new Error("Sem conexão com o servidor. Verifique a internet — e abra este " +
+      "arquivo direto do computador (endereço começando com file:// ou http://), não por um site https.");
+  }
+  if (!r.ok) throw new Error(`O servidor recusou o pedido (HTTP ${r.status}).`);
+  if ((r.headers.get("content-type") || "").includes("html")) {
+    throw new Error("A rede em que você está bloqueou o servidor (filtro de internet).");
+  }
+  try { return await r.json(); }
+  catch { throw new Error("O servidor respondeu algo inesperado. Tente de novo."); }
+}
+
+function urlMidia(caminho, id, ext) {
+  const c = estado.cred;
+  return `${SERVIDOR}/${caminho}/${encodeURIComponent(c.usuario)}/${encodeURIComponent(c.senha)}/${id}.${ext}`;
+}
+
+/** Lista da API → títulos únicos. A API repete o filme uma vez por categoria. */
+function paraTitulos(tipo, lista) {
+  const porId = new Map();
+  for (const x of Array.isArray(lista) ? lista : []) {
+    const id = x.stream_id ?? x.series_id;
+    if (id == null || !x.name) continue;
+    const cats = (x.category_ids && x.category_ids.length ? x.category_ids : [x.category_id])
+      .filter((c) => c != null).map(String);
+    const ja = porId.get(id);
+    if (ja) { for (const c of cats) if (!ja.categorias.includes(c)) ja.categorias.push(c); continue; }
+    const nome = String(x.name).trim();
+    porId.set(id, {
+      tipo, id, nome, chave: normalizar(nome),
+      capa: x.stream_icon || x.cover || "",
+      ano: x.year || "",
+      ext: x.container_extension || "mp4",
+      categorias: cats,
+    });
+  }
+  return [...porId.values()];
+}
+
+// ---------------------------------------------------------------- sessão
+
+function credenciaisGuardadas() {
+  try {
+    const t = localStorage.getItem("filmes.cred") || sessionStorage.getItem("filmes.cred");
+    return t ? JSON.parse(t) : null;
+  } catch { return null; }
+}
+
+function guardar(cred, lembrar) {
+  try {
+    localStorage.removeItem("filmes.cred"); sessionStorage.removeItem("filmes.cred");
+    (lembrar ? localStorage : sessionStorage).setItem("filmes.cred", JSON.stringify(cred));
+  } catch { /* sem armazenamento: vale só para esta aba */ }
+}
+
+async function entrar(cred, lembrar) {
+  estado.cred = cred;
+  const r = await api(null);
+  const info = r && r.user_info;
+  if (!info || Number(info.auth) !== 1) { estado.cred = null; throw new Error("Usuário ou senha incorretos."); }
+  if (String(info.status).toLowerCase() !== "active") {
+    estado.cred = null; throw new Error(`A sua assinatura não está ativa (${info.status}).`);
+  }
+  guardar(cred, lembrar);
+  mostrarApp();
+  carregarAcervo();
+}
+
+function mostrarLogin(erro) {
+  $("app").classList.add("oculto");
+  $("login").classList.remove("oculto");
+  $("erroLogin").textContent = erro || "";
+  $("erroLogin").classList.toggle("oculto", !erro);
+}
+
+$("login").querySelector("form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const botao = $("entrar");
+  botao.disabled = true; botao.textContent = "Entrando…";
+  try {
+    await entrar({ usuario: $("usuario").value.trim(), senha: $("senha").value.trim() }, $("lembrar").checked);
+  } catch (e) {
+    mostrarLogin(e.message);
+  } finally {
+    botao.disabled = false; botao.textContent = "Entrar";
+  }
+});
+
+$("sair").addEventListener("click", () => {
+  try { localStorage.removeItem("filmes.cred"); sessionStorage.removeItem("filmes.cred"); } catch {}
+  estado.cred = null; estado.acervo = null;
+  $("senha").value = "";
+  mostrarLogin();
+});
+
+// ---------------------------------------------------------------- acervo
+
+async function carregarAcervo() {
+  estado.carregando = true; estado.erroAcervo = null;
+  desenhar();
+  try {
+    const partes = await Promise.all(Object.entries(TIPOS).map(async ([tipo, t]) => {
+      const [cats, lista] = await Promise.all([api(t.categorias), api(t.lista)]);
+      const titulos = paraTitulos(tipo, lista);
+      const usadas = new Set(titulos.flatMap((x) => x.categorias));
+      const categorias = (Array.isArray(cats) ? cats : [])
+        .map((c) => ({ id: String(c.category_id), nome: String(c.category_name || "").trim() }))
+        .filter((c) => c.nome && usadas.has(c.id));
+      return [tipo, { categorias, titulos }];
+    }));
+    estado.acervo = Object.fromEntries(partes);
+  } catch (e) {
+    estado.erroAcervo = e.message;
+  }
+  estado.carregando = false;
+  desenhar();
+}
+
+/** Busca pelo nome em TODO o acervo: todas as palavras, qualquer ordem, sem acento. */
+function buscar(texto, tipos) {
+  const consulta = normalizar(texto);
+  const palavras = consulta.split(" ").filter(Boolean);
+  if (!palavras.length || !estado.acervo) return [];
+  const achados = [];
+  for (const tipo of tipos) {
+    for (const t of estado.acervo[tipo].titulos) {
+      if (palavras.every((p) => t.chave.includes(p))) achados.push(t);
+    }
+  }
+  // Quem começa com o texto digitado vem primeiro; o resto mantém a ordem do
+  // servidor (mais recentes antes). sort é estável.
+  return achados.sort((a, b) => (b.chave.startsWith(consulta)) - (a.chave.startsWith(consulta)));
+}
+
+// ---------------------------------------------------------------- telas
+
+function mostrarApp() {
+  $("login").classList.add("oculto");
+  $("app").classList.remove("oculto");
+  desenharAbas();
+}
+
+function desenharAbas() {
+  $("abas").replaceChildren(...Object.entries(TIPOS).map(([tipo, t]) =>
+    el("button", {
+      class: "aba" + (tipo === estado.tipo && !$("busca").value.trim() && !estado.serie ? " ativa" : ""),
+      style: `--cor:${t.cor}`,
+      onclick: () => {
+        estado.tipo = tipo; estado.categoria = null; estado.serie = null;
+        $("busca").value = "";
+        desenhar(); window.scrollTo(0, 0);
+      },
+    }, t.aba)));
+}
+
+function aviso(texto, ruim, girando) {
+  return el("div", { class: "aviso" + (ruim ? " ruim" : "") },
+    girando ? el("div", { class: "girando" }) : null, texto);
+}
+
+function desenhar() {
+  desenharAbas();
+  const alvo = $("conteudo");
+  const texto = $("busca").value;
+
+  if (!estado.acervo) {
+    if (estado.erroAcervo) {
+      alvo.replaceChildren(aviso(estado.erroAcervo, true),
+        el("div", { style: "text-align:center" },
+          el("button", { class: "botao", onclick: carregarAcervo }, "Tentar de novo")));
+    } else {
+      alvo.replaceChildren(aviso("Carregando o catálogo inteiro (filmes, séries e canais)…", false, true));
+    }
+    return;
+  }
+
+  if (estado.serie && !texto.trim()) return desenharSerie(alvo);
+  if (texto.trim()) return desenharBusca(alvo, texto);
+
+  const prat = estado.acervo[estado.tipo];
+  const lista = estado.categoria
+    ? prat.titulos.filter((t) => t.categorias.includes(estado.categoria))
+    : prat.titulos;
+  const nomeCat = estado.categoria && prat.categorias.find((c) => c.id === estado.categoria)?.nome;
+
+  alvo.replaceChildren(
+    el("div", { class: "chips" },
+      chip("Todos", !estado.categoria, () => { estado.categoria = null; desenhar(); }),
+      prat.categorias.map((c) => chip(c.nome, estado.categoria === c.id,
+        () => { estado.categoria = c.id; desenhar(); window.scrollTo(0, 0); }))),
+    el("p", { class: "info" }, `${lista.length.toLocaleString("pt-BR")} títulos` + (nomeCat ? ` · ${nomeCat}` : "")),
+    lista.length ? grade(lista, (t) => t.ano) : aviso("Nada nesta categoria."),
+  );
+}
+
+function desenharBusca(alvo, texto) {
+  const tipos = estado.filtroBusca ? [estado.filtroBusca] : Object.keys(TIPOS);
+  const achados = buscar(texto, tipos);
+  const total = (k) => estado.acervo[k].titulos.length.toLocaleString("pt-BR");
+  alvo.replaceChildren(
+    el("div", { class: "chips" },
+      chip("Tudo", !estado.filtroBusca, () => { estado.filtroBusca = null; desenhar(); }),
+      Object.entries(TIPOS).map(([k, t]) =>
+        chip(t.aba, estado.filtroBusca === k, () => { estado.filtroBusca = k; desenhar(); }))),
+    el("p", { class: "info" },
+      `${achados.length.toLocaleString("pt-BR")} resultados para “${texto.trim()}” — em ` +
+      `${total("filme")} filmes, ${total("serie")} séries e ${total("canal")} canais`),
+    achados.length
+      ? grade(achados, (t) => [TIPOS[t.tipo].rotulo, t.ano].filter(Boolean).join(" · "))
+      : aviso("Nada encontrado. Tente só uma palavra do nome."),
+  );
+}
+
+function chip(texto, ativo, aoClicar) {
+  return el("button", { class: "chip" + (ativo ? " ativo" : ""), onclick: aoClicar }, texto);
+}
+
+/** Grade com desenho em lotes: mais capas aparecem conforme a rolagem chega ao fim. */
+function grade(titulos, legenda) {
+  const g = el("div", { class: "grade" });
+  const sentinela = el("div", { style: "height:1px" });
+  let feitos = 0;
+  const mais = () => {
+    const fim = Math.min(feitos + LOTE, titulos.length);
+    for (; feitos < fim; feitos++) g.append(cartaz(titulos[feitos], legenda(titulos[feitos])));
+    if (feitos >= titulos.length) { observador.disconnect(); sentinela.remove(); }
+  };
+  const observador = new IntersectionObserver((e) => { if (e[0].isIntersecting) mais(); },
+    { rootMargin: "1200px" });
+  mais();
+  if (feitos < titulos.length) queueMicrotask(() => observador.observe(sentinela));
+  return el("div", {}, g, sentinela);
+}
+
+function cartaz(t, legenda) {
+  const capa = el("div", { class: "capa" });
+  if (t.capa) {
+    // A imagem precisa estar NA página: o Chrome nunca baixa uma imagem
+    // loading="lazy" que ainda não foi inserida (as capas sumiam por isso).
+    const img = el("img", { src: t.capa, alt: "", loading: "lazy", referrerpolicy: "no-referrer" });
+    img.addEventListener("load", () => img.classList.add("pronta"), { once: true });
+    img.addEventListener("error", () => img.remove(), { once: true });
+    capa.append(img);
+  }
+  return el("button", { class: "cartaz" + (t.tipo === "canal" ? " canal" : ""), title: t.nome, onclick: () => abrir(t) },
+    capa, el("div", { class: "nome" }, t.nome), legenda ? el("div", { class: "legenda" }, legenda) : null);
+}
+
+function abrir(t) {
+  if (t.tipo === "serie") {
+    estado.serie = { titulo: t, episodios: null, erro: null, temporada: null };
+    $("busca").value = "";
+    desenhar(); window.scrollTo(0, 0);
+    carregarEpisodios();
+  } else if (t.tipo === "canal") {
+    tocar(urlMidia("live", t.id, "m3u8"), t.nome, null);
+  } else {
+    tocar(urlMidia("movie", t.id, t.ext), t.nome, `filme-${t.id}`);
+  }
+}
+
+// ---------------------------------------------------------------- série
+
+async function carregarEpisodios() {
+  const s = estado.serie;
+  s.erro = null; s.episodios = null;
+  try {
+    const r = await api("get_series_info", { series_id: s.titulo.id });
+    const eps = [];
+    const porTemp = r && r.episodes && !Array.isArray(r.episodes) ? r.episodes : {};
+    for (const [temp, lista] of Object.entries(porTemp)) {
+      (lista || []).forEach((e, i) => eps.push({
+        id: e.id, temporada: Number(e.season ?? temp) || 0, numero: Number(e.episode_num) || i + 1,
+        titulo: e.title || "", ext: e.container_extension || "mp4",
+        duracao: e.info && e.info.duration || "",
+      }));
+    }
+    eps.sort((a, b) => a.temporada - b.temporada || a.numero - b.numero);
+    if (estado.serie === s) s.episodios = eps;
+  } catch (e) {
+    if (estado.serie === s) s.erro = e.message;
+  }
+  if (estado.serie === s) desenhar();
+}
+
+function desenharSerie(alvo) {
+  const s = estado.serie;
+  const voltar = el("button", { class: "voltar", onclick: () => { estado.serie = null; desenhar(); } },
+    "← Voltar para " + TIPOS.serie.aba);
+  const titulo = el("h2", { style: "margin:4px 0 10px" }, s.titulo.nome);
+
+  if (s.erro) return alvo.replaceChildren(voltar, titulo, aviso(s.erro, true),
+    el("div", { style: "text-align:center" }, el("button", { class: "botao", onclick: carregarEpisodios }, "Tentar de novo")));
+  if (!s.episodios) return alvo.replaceChildren(voltar, titulo, aviso("Carregando episódios…", false, true));
+  if (!s.episodios.length) return alvo.replaceChildren(voltar, titulo, aviso("Esta série ainda não tem episódios."));
+
+  const temporadas = [...new Set(s.episodios.map((e) => e.temporada))];
+  const atual = s.temporada ?? temporadas[0];
+  alvo.replaceChildren(voltar, titulo,
+    el("div", { class: "chips" }, temporadas.map((t) =>
+      chip(`Temporada ${t}`, t === atual, () => { s.temporada = t; desenhar(); }))),
+    el("div", { class: "episodios" }, s.episodios.filter((e) => e.temporada === atual).map((e) =>
+      el("button", {
+        class: "episodio",
+        onclick: () => tocar(urlMidia("series", e.id, e.ext),
+          `${s.titulo.nome} · T${e.temporada} E${e.numero}`, `ep-${e.id}`),
+      },
+      el("span", { class: "play" }, "▶"),
+      el("span", {}, `Episódio ${e.numero}`, el("small", {}, [e.titulo, e.duracao].filter(Boolean).join(" · ")))))));
+}
+
+// ---------------------------------------------------------------- player
+
+let hls = null;
+let chaveAtual = null;
+let quietoTimer = null;
+
+function estadoPlayer(texto, ruim) {
+  const e = $("estadoPlayer");
+  e.textContent = texto || "";
+  e.classList.toggle("ruim", !!ruim);
+}
+
+function carregarHlsJs() {
+  if (window.Hls) return Promise.resolve();
+  return new Promise((ok, falha) => {
+    const s = el("script", { src: HLS_JS });
+    s.onload = ok; s.onerror = () => falha(new Error("Não consegui baixar o leitor de TV ao vivo (hls.js)."));
+    document.head.append(s);
+  });
+}
+
+/**
+ * Toca no <video> do navegador. Filmes e episódios são MP4 com suporte a
+ * avançar (Range medido: 206 em qualquer ponto). TV é HLS: o Safari toca
+ * direto; Chrome/Edge/Firefox precisam do hls.js — e funciona porque o
+ * servidor manda CORS "*" no manifesto e nos segmentos (medido).
+ */
+async function tocar(url, titulo, chave) {
+  const v = $("video");
+  fecharMidia();
+  chaveAtual = chave;
+  $("tituloPlayer").textContent = titulo;
+  $("player").classList.remove("oculto");
+  estadoPlayer("Carregando…");
+  document.body.style.overflow = "hidden";
+
+  const aoVivo = url.endsWith(".m3u8");
+  try {
+    if (aoVivo && !v.canPlayType("application/vnd.apple.mpegurl")) {
+      await carregarHlsJs();
+      hls = new window.Hls();
+      hls.on(window.Hls.Events.ERROR, (_, d) => {
+        if (d.fatal) estadoPlayer("Este canal não respondeu agora. Tente outro, ou de novo em instantes.", true);
+      });
+      hls.loadSource(url);
+      hls.attachMedia(v);
+    } else {
+      v.src = url;
+    }
+  } catch (e) {
+    return estadoPlayer(e.message, true);
+  }
+
+  // Continua de onde parou, se houver posição guardada.
+  const salvo = chave ? Number(lerPosicao(chave)) : 0;
+  if (salvo > 30) {
+    v.addEventListener("loadedmetadata", () => {
+      if (salvo < v.duration - 60) { v.currentTime = salvo; mostrarRecomecar(salvo); }
+    }, { once: true });
+  }
+  v.play().catch(() => { /* sem gesto do usuário o navegador pode recusar; os controles ficam à mão */ });
+}
+
+function mostrarRecomecar(seg) {
+  const toast = el("div", { class: "toast" },
+    `Continuando de ${relogio(seg)}`,
+    el("button", { onclick: () => { $("video").currentTime = 0; toast.remove(); } }, "Recomeçar"));
+  $("player").append(toast);
+  setTimeout(() => toast.remove(), 7000);
+}
+
+function relogio(s) {
+  s = Math.floor(s);
+  const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, ss = s % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(ss).padStart(2, "0");
+}
+
+function lerPosicao(k) { try { return localStorage.getItem("filmes.pos." + k); } catch { return null; } }
+function gravarPosicao(k, s) { try { localStorage.setItem("filmes.pos." + k, String(Math.floor(s))); } catch {} }
+function apagarPosicao(k) { try { localStorage.removeItem("filmes.pos." + k); } catch {} }
+
+function fecharMidia() {
+  const v = $("video");
+  if (hls) { hls.destroy(); hls = null; }
+  v.pause(); v.removeAttribute("src"); v.load();
+  $("player").querySelectorAll(".toast").forEach((t) => t.remove());
+}
+
+function fecharPlayer() {
+  const v = $("video");
+  if (chaveAtual && v.currentTime > 30) gravarPosicao(chaveAtual, v.currentTime);
+  fecharMidia();
+  chaveAtual = null;
+  $("player").classList.add("oculto");
+  document.body.style.overflow = "";
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+(() => {
+  const v = $("video");
+  v.addEventListener("playing", () => estadoPlayer(""));
+  v.addEventListener("waiting", () => estadoPlayer("Carregando…"));
+  v.addEventListener("seeking", () => estadoPlayer("Carregando…"));
+  v.addEventListener("seeked", () => estadoPlayer(""));
+  v.addEventListener("error", () => {
+    if (!v.getAttribute("src")) return; // erro do próprio fecharMidia
+    estadoPlayer("O navegador não conseguiu tocar este título. " +
+      "Pode ser um formato que ele não lê (MKV/AVI) — no celular, o app toca.", true);
+  });
+  let ultimo = 0;
+  v.addEventListener("timeupdate", () => {
+    if (!chaveAtual || Date.now() - ultimo < 5000) return;
+    ultimo = Date.now();
+    if (v.duration && v.currentTime > v.duration - 60) apagarPosicao(chaveAtual);
+    else if (v.currentTime > 30) gravarPosicao(chaveAtual, v.currentTime);
+  });
+
+  $("fecharPlayer").addEventListener("click", fecharPlayer);
+  $("player").addEventListener("mousemove", () => {
+    $("player").classList.remove("quieto");
+    clearTimeout(quietoTimer);
+    quietoTimer = setTimeout(() => $("player").classList.add("quieto"), 3000);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if ($("player").classList.contains("oculto")) {
+      // "/" leva para a busca, como em muitos sites.
+      if (e.key === "/" && document.activeElement !== $("busca")) { e.preventDefault(); $("busca").focus(); }
+      return;
+    }
+    if (e.key === "Escape" && !document.fullscreenElement) fecharPlayer();
+    else if (e.key === "f" || e.key === "F") {
+      document.fullscreenElement ? document.exitFullscreen() : $("player").requestFullscreen().catch(() => {});
+    } else if (e.target === v) {
+      return; // o <video> com foco já trata espaço e setas
+    } else if (e.key === " ") { e.preventDefault(); v.paused ? v.play() : v.pause(); }
+    else if (e.key === "ArrowRight") v.currentTime += 30;
+    else if (e.key === "ArrowLeft") v.currentTime = Math.max(0, v.currentTime - 10);
+  });
+})();
+
+// ---------------------------------------------------------------- busca e início
+
+let esperaBusca = null;
+$("busca").addEventListener("input", () => {
+  clearTimeout(esperaBusca);
+  esperaBusca = setTimeout(() => { desenhar(); window.scrollTo(0, 0); }, 180);
+});
+
+(async () => {
+  if (location.protocol === "https:") {
+    // Sabido de antemão: a página https não pode chamar o servidor http.
+    mostrarLogin("Esta página foi aberta por https, e o servidor só aceita http — o navegador vai bloquear. " +
+      "Baixe o arquivo index.html e abra-o com dois cliques.");
+  }
+  const salvas = credenciaisGuardadas();
+  if (!salvas) { if (location.protocol !== "https:") mostrarLogin(); return; }
+  $("usuario").value = salvas.usuario; $("senha").value = salvas.senha;
+  mostrarApp();
+  try {
+    let lembrado = false;
+    try { lembrado = !!localStorage.getItem("filmes.cred"); } catch {}
+    await entrar(salvas, lembrado);
+  } catch (e) {
+    mostrarLogin(e.message);
+  }
+})();
+</script>
+</body>
+</html>
